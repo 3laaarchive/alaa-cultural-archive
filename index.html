@@ -17,6 +17,7 @@
 .empty{grid-column:1/-1;padding:30px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
 footer{margin-top:50px;border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 dialog{width:min(760px,calc(100% - 28px));max-height:88vh;overflow:auto;background:#111d2d;color:var(--text);border:1px solid #3b4d64;border-radius:18px;padding:0}dialog::backdrop{background:#030812c9}.modal{padding:24px}.modal h2{font-size:28px;line-height:1.4;margin:12px 0}.modal .body{white-space:pre-wrap;color:#d4deeb;line-height:2}.modal a{color:var(--accent)}.close{float:left;background:#26364b;color:white;border:1px solid var(--line);padding:7px 12px;border-radius:9px;cursor:pointer}.sources{margin-top:24px;padding-top:14px;border-top:1px solid var(--line)}.sources li{margin:8px 0}
+.modal-img{width:100%;max-height:380px;object-fit:cover;border-radius:12px;margin:16px 0;border:1px solid var(--line)}
 @media(max-width:760px){.grid{grid-template-columns:1fr 1fr}.top{margin-bottom:40px}.nav{gap:10px}}@media(max-width:520px){.wrap{padding:20px 14px 40px}.grid{grid-template-columns:1fr}.stats{gap:8px}.stat{padding:12px}.stat strong{font-size:21px}.nav{font-size:11px}.hero p{font-size:15px}}
 </style>
 </head>
@@ -31,7 +32,7 @@ dialog{width:min(760px,calc(100% - 28px));max-height:88vh;overflow:auto;backgrou
 <div class="controls"><input id="search" type="search" placeholder="ابحث في العناوين والخلاصات والكلمات المفتاحية..." aria-label="بحث"><select id="category"><option value="all">كل المجالات</option></select></div><div class="grid" id="cards"></div></section>
 <section class="about" id="about"><h2>عن هذا الأرشيف</h2><p>هذا مشروع شخصي لتوثيق مسارات البحث والاهتمامات المتغيرة. قد تبدأ الموضوعات بسؤال صغير، ثم تتوسع إلى قراءة ومقارنة وفرز للمعلومات. الغاية ليست ادعاء امتلاك الإجابة النهائية، بل مشاركة خلاصة الرحلة ومصادرها كي تبقى المعرفة قابلة للمراجعة والإضافة.</p></section>
 </main><footer><span>علاء · الأرشيف الثقافي</span><span>فضول اليوم، ذاكرة الغد.</span></footer></div>
-<dialog id="detail"><div class="modal"><button class="close" id="close">إغلاق ✕</button><div id="detailMeta" class="meta"></div><h2 id="detailTitle"></h2><p id="detailSummary" style="color:#aebdd0"></p><div id="detailBody" class="body"></div><div id="detailSources" class="sources"></div></div></dialog>
+<dialog id="detail"><div class="modal"><button class="close" id="close">إغلاق ✕</button><div id="detailMeta" class="meta"></div><h2 id="detailTitle"></h2><div id="detailImageContainer"></div><p id="detailSummary" style="color:#aebdd0"></p><div id="detailBody" class="body"></div><div id="detailSources" class="sources"></div></div></dialog>
 <script>
 let all=[];
 const $=id=>document.getElementById(id);
@@ -45,8 +46,17 @@ function draw(){
  const list=all.filter(x=>(cat==='all'||x.category===cat)&&[x.title,x.summary,x.content,(x.keywords||[]).join(' '),x.category].join(' ').toLowerCase().includes(q));
  $('cards').innerHTML=list.length?list.map(x=>`<article class="card" tabindex="0" role="button" data-id="${esc(x.id)}"><div class="meta"><span class="tag">${esc(x.category||'متنوع')}</span><span>${esc(x.date||'')}</span></div><h3>${esc(x.title)}</h3><p>${esc(x.summary||'')}</p><span class="read">اقرأ البحث ←</span></article>`).join(''):'<div class="empty">لا توجد نتائج. جرّب كلمة أخرى أو مجالاً مختلفاً.</div>';
 }
-function openItem(id){const x=all.find(a=>String(a.id)===String(id));if(!x)return;$('detailMeta').innerHTML=`<span class="tag">${esc(x.category||'متنوع')}</span><span>${esc(x.date||'')}</span>`;$('detailTitle').textContent=x.title;$('detailSummary').textContent=x.summary||'';$('detailBody').textContent=x.content||'';const src=x.sources||[];$('detailSources').innerHTML=src.length?'<h3>مصادر ومراجع</h3><ul>'+src.map(s=>`<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a></li>`).join('')+'</ul>':'';$('detail').showModal()}
-$('cards').addEventListener('click',e=>{const c=e.target.closest('[data-id]');if(c)openItem(c.dataset.id)});$('cards').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const c=e.target.closest('[data-id]');if(c){e.preventDefault();openItem(c.dataset.id)}}});
-$('close').onclick=()=>$('detail').close();$('detail').addEventListener('click',e=>{if(e.target===$('detail'))$('detail').close()});$('search').addEventListener('input',draw);$('category').addEventListener('change',draw);
-fetch('./data.json').then(r=>{if(!r.ok)throw Error('تعذر تحميل البيانات');return r.json()}).then(d=>{document.title=(d.site?.name||'علاء')+' | '+(d.site?.title||'الأرشيف الثقافي');all=d.research||[];draw()}).catch(()=>{$('cards').innerHTML='<div class="empty">تعذر تحميل الأبحاث. تأكد من وجود ملف data.json بجانب الصفحة.</div>'});
+function openItem(id){
+ const x=all.find(a=>String(a.id)===String(id));if(!x)return;
+ $('detailMeta').innerHTML=`<span class="tag">${esc(x.category||'متنوع')}</span><span>${esc(x.date||'')}</span>`;
+ $('detailTitle').textContent=x.title;
+ if(x.image){$('detailImageContainer').innerHTML=`<img src="${esc(x.image)}" class="modal-img" alt="${esc(x.title)}">`;}else{$('detailImageContainer').innerHTML='';}
+ $('detailSummary').textContent=x.summary||'';$('detailBody').textContent=x.content||'';
+ const src=x.sources||[];$('detailSources').innerHTML=src.length?'<h3>مصادر ومراجع</h3><ul>'+src.map(s=>`<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a></li>`).join('')+'</ul>':'';
+ $('detail').showModal()
+}
+$('cards').addEventListener('click',e=>{const c=e.target.closest('[data-id]');if(c)openItem(c.dataset.id)});
+$('cards').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const c=e.target.closest('[data-id]');if(c){e.preventDefault();openItem(c.dataset.id)}}});
+$('close').onclick=()=>$('detail').close();$('detail').addEventListener('click',e=>{if(e.target===$('detail'))$('detail').close()});
+fetch('data.json').then(r=>r.json()).then(d=>{all=d.research||[];draw()}).catch(e=>console.error(e));
 </script></body></html>
